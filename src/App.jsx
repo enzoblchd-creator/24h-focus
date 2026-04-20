@@ -149,6 +149,17 @@ export default function App() {
 
         </div>
       </main>
+
+      {/* Debug: simulate +24h */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2">
+        <button
+          onClick={() => setTasks(prev => prev.map(t => ({ ...t, createdAt: t.createdAt - H24 })))}
+          title="Simulate +24h"
+          className="text-[11px] font-light text-gray-300 bg-white hover:text-gray-400 transition-colors duration-150 px-3 py-1.5 rounded-full focus:outline-none"
+        >
+          +24h
+        </button>
+      </div>
     </>
   )
 }
