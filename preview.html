@@ -292,9 +292,10 @@ function render() {
     li.setAttribute('data-id', task.id)
     li.setAttribute('draggable', 'true')
 
-    // Delete hint (shown behind on swipe)
+    // Delete hint — hidden by default, shown only during swipe
     const deleteBg = document.createElement('div')
     deleteBg.className = 'absolute inset-0 rounded-3xl bg-red-50 dark:bg-red-950/30 flex items-center justify-end pr-5'
+    deleteBg.style.opacity = '0'
     deleteBg.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`
     li.appendChild(deleteBg)
 
@@ -346,6 +347,7 @@ function render() {
       }
       if (swipeIntent!=='swipe'||dx>=0) return
       e.preventDefault()
+      deleteBg.style.opacity='1'
       card.style.transform=`translateX(${Math.max(dx,-124)}px)`
     }, {passive:false})
     card.addEventListener('touchend', () => {
@@ -358,6 +360,7 @@ function render() {
       } else {
         card.style.transition='transform 0.4s cubic-bezier(0.34,1.56,0.64,1)'
         card.style.transform='translateX(0)'
+        deleteBg.style.opacity='0'
       }
       swipeIntent=null
     })

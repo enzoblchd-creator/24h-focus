@@ -32,6 +32,7 @@ export default function TaskCard({ task, onToggle, onPriority, onDelete, onPlay 
 
   // Swipe-to-delete refs — no state, no re-renders during gesture
   const innerRef = useRef(null)
+  const deleteBgRef = useRef(null)
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
   const swipeIntent = useRef(null) // null | 'swipe' | 'scroll'
@@ -64,6 +65,7 @@ export default function TaskCard({ task, onToggle, onPriority, onDelete, onPlay 
 
     if (swipeIntent.current !== 'swipe' || dx >= 0) return
     e.preventDefault()
+    if (deleteBgRef.current) deleteBgRef.current.style.opacity = '1'
     if (innerRef.current)
       innerRef.current.style.transform = `translateX(${Math.max(dx, -SWIPE_THRESHOLD * 1.4)}px)`
   }
@@ -79,6 +81,7 @@ export default function TaskCard({ task, onToggle, onPriority, onDelete, onPlay 
     } else {
       innerRef.current.style.transition = 'transform 0.4s cubic-bezier(0.34,1.56,0.64,1)'
       innerRef.current.style.transform = 'translateX(0)'
+      if (deleteBgRef.current) deleteBgRef.current.style.opacity = '0'
     }
     swipeIntent.current = null
   }
@@ -95,8 +98,8 @@ export default function TaskCard({ task, onToggle, onPriority, onDelete, onPlay 
       transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
       className="relative"
     >
-      {/* Delete hint revealed on swipe */}
-      <div className="absolute inset-0 rounded-3xl bg-red-50 dark:bg-red-950/30 flex items-center justify-end pr-5">
+      {/* Delete hint — hidden by default, revealed on swipe via ref */}
+      <div ref={deleteBgRef} className="absolute inset-0 rounded-3xl bg-red-50 dark:bg-red-950/30 flex items-center justify-end pr-5" style={{ opacity: 0 }}>
         <Trash2 size={14} className="text-red-400" />
       </div>
 
