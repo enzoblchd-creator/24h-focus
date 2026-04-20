@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "24h-focus-preview",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["/tmp/serve-24h.py"],
+      "port": 3000
+    }
+  ]
+}

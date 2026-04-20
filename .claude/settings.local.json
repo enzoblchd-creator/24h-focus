@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create *)",
+      "Read(//usr/local/bin/**)",
+      "Read(//Users/enzo/.nvm/**)",
+      "Bash(export PATH=\"$PATH:/usr/local/bin:/opt/homebrew/bin:$HOME/.nvm/versions/node/$\\(ls ~/.nvm/versions/node)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(git --version)",
+      "Bash(gh --version)",
+      "Bash(git config *)"
+    ]
+  }
+}
