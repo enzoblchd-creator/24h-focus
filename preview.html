@@ -8,329 +8,436 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
   <script>
     tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
-        }
-      }
+      darkMode: 'class',
+      theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } }
     }
   </script>
   <style>
     * { box-sizing: border-box; }
-    body { font-family: 'Inter', system-ui, sans-serif; background: #F9F9FB; -webkit-font-smoothing: antialiased; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #F9F9FB; -webkit-font-smoothing: antialiased; transition: background 0.3s; }
+    html.dark body { background: #0F0F11; }
+
     .card-shadow { box-shadow: 0 4px 24px rgba(0,0,0,0.04); }
-    .card-shadow-hover { box-shadow: 0 8px 32px rgba(0,0,0,0.08); }
-    .progress-bar { position: fixed; top: 0; left: 0; right: 0; height: 2px; background: rgba(0,0,0,0.06); z-index: 50; }
-    .progress-fill { height: 100%; background: black; transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
-    .task-card { transition: box-shadow 0.2s, opacity 0.25s, transform 0.25s; }
-    .task-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.08); }
+    .card-shadow:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.08); }
+    html.dark .card-shadow { box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+
+    .progress-bar { position:fixed; top:0; left:0; right:0; height:2px; background:rgba(0,0,0,0.06); z-index:50; }
+    html.dark .progress-bar { background: rgba(255,255,255,0.08); }
+    .progress-fill { height:100%; background:black; transition:width 0.6s cubic-bezier(0.4,0,0.2,1); }
+    html.dark .progress-fill { background: white; }
+
     .task-enter { animation: taskIn 0.25s cubic-bezier(0.4,0,0.2,1) forwards; }
-    .task-exit { animation: taskOut 0.2s cubic-bezier(0.4,0,0.2,1) forwards; }
-    @keyframes taskIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
-    @keyframes taskOut { from { opacity:1; transform:translateY(0); } to { opacity:0; transform:translateY(-8px) scale(0.97); } }
-    .check-bounce { animation: checkBounce 0.2s cubic-bezier(0.4,0,0.2,1); }
-    @keyframes checkBounce { 0%{transform:scale(1)} 50%{transform:scale(1.18)} 100%{transform:scale(1)} }
-    .graveyard-list { overflow: hidden; transition: max-height 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.25s; }
-    .action-btns { opacity: 0; transition: opacity 0.15s; }
-    .task-card:hover .action-btns, .task-card:focus-within .action-btns { opacity: 1; }
-    .revive-btn { opacity: 0; transition: opacity 0.15s; }
-    .graveyard-item:hover .revive-btn, .graveyard-item:focus-within .revive-btn { opacity: 1; }
-    .chevron { transition: transform 0.2s; }
-    .chevron.open { transform: rotate(180deg); }
-    button:focus-visible { outline: 2px solid rgba(0,0,0,0.2); outline-offset: 2px; border-radius: 9999px; }
+    @keyframes taskIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+    .action-btns { opacity:0; transition:opacity 0.15s; }
+    .task-card:hover .action-btns,
+    .task-card:focus-within .action-btns { opacity:1; }
+    .revive-btn { opacity:0; transition:opacity 0.15s; }
+    .graveyard-item:hover .revive-btn { opacity:1; }
+
+    .graveyard-list { overflow:hidden; transition: max-height 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.25s; }
+    .chevron { transition:transform 0.2s; }
+    .chevron.open { transform:rotate(180deg); }
+
+    button { cursor:pointer; }
+    button:focus-visible { outline:2px solid rgba(0,0,0,0.2); outline-offset:2px; border-radius:9999px; }
+    html.dark button:focus-visible { outline-color: rgba(255,255,255,0.2); }
+
+    /* Drag & drop */
+    .task-card { transition: box-shadow 0.2s, opacity 0.15s; cursor:default; }
+    .task-card.dragging { opacity:0.7; box-shadow: 0 12px 40px rgba(0,0,0,0.15); transform:scale(1.01); z-index:100; }
+    .drag-handle { cursor:grab; }
+    .drag-handle:active { cursor:grabbing; }
+    .drag-over { border:1.5px dashed rgba(0,0,0,0.15); }
+    html.dark .drag-over { border-color: rgba(255,255,255,0.15); }
   </style>
 </head>
 <body>
 
-<div id="progress-bar" class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Tasks completed">
+<div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
   <div id="progress-fill" class="progress-fill" style="width:0%"></div>
 </div>
 
 <main class="min-h-screen px-6 py-20">
-  <div class="mx-auto max-w-[480px]">
+<div class="mx-auto max-w-[480px]">
 
-    <!-- Header -->
-    <header class="mb-10">
-      <h1 class="text-[22px] font-bold tracking-tight text-black leading-none">24h focus.</h1>
+  <!-- Header -->
+  <header class="mb-10 flex items-start justify-between">
+    <div>
+      <h1 class="text-[22px] font-bold tracking-tight text-black dark:text-white leading-none">24h focus.</h1>
       <p id="subtitle" class="text-[13px] text-[#94A3B8] font-light mt-1">Add something to focus on today.</p>
-    </header>
+    </div>
+    <div class="flex items-center gap-2 mt-1">
+      <div id="streak-badge" class="hidden items-center gap-1 text-[12px] font-medium text-[#94A3B8] dark:text-white/40 bg-black/[0.04] dark:bg-white/[0.06] px-2.5 py-1 rounded-full">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+        <span id="streak-count">0</span>
+      </div>
+      <button id="dark-toggle" aria-label="Toggle dark mode"
+        class="w-8 h-8 rounded-full flex items-center justify-center text-[#94A3B8] dark:text-white/40 hover:bg-black/5 dark:hover:bg-white/10 transition-colors duration-150">
+        <svg id="icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg id="icon-sun" class="hidden" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
 
-    <!-- Input -->
+  <!-- Input -->
+  <div class="space-y-2">
     <div class="relative flex items-center">
-      <input
-        id="task-input"
-        type="text"
-        placeholder="What is your focus for today?"
-        aria-label="Add a new task"
-        class="w-full rounded-full border border-black/[0.08] bg-white px-6 py-4 pr-14 text-[15px] font-medium text-black placeholder:text-[#94A3B8] placeholder:font-normal card-shadow focus:outline-none focus:ring-2 focus:ring-black/10 transition-shadow duration-200 hover:card-shadow-hover"
-      />
-      <button
-        id="add-btn"
-        aria-label="Add task"
-        class="absolute right-2 flex items-center justify-center w-9 h-9 rounded-full bg-black text-white hover:bg-black/80 active:scale-95 transition-all duration-150"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <input id="task-input" type="text" placeholder="What is your focus for today?" aria-label="Add a new task"
+        class="w-full rounded-full border border-black/[0.08] dark:border-white/10 bg-white dark:bg-[#1A1A1F] px-6 py-4 pr-14 text-[15px] font-medium text-black dark:text-white placeholder:text-[#94A3B8] placeholder:font-normal card-shadow focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/10 transition-all"/>
+      <button id="add-btn" aria-label="Add task"
+        class="absolute right-2 flex items-center justify-center w-9 h-9 rounded-full bg-black dark:bg-white text-white dark:text-black hover:bg-black/80 active:scale-95 transition-all duration-150">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>
     </div>
-
-    <!-- Active list -->
-    <ul id="active-list" class="mt-4 space-y-2" role="list" aria-label="Today's tasks"></ul>
-
-    <!-- Empty state -->
-    <div id="empty-state" class="mt-12 text-center hidden">
-      <p class="text-4xl mb-3">✦</p>
-      <p class="text-[14px] text-[#94A3B8] font-light">Your slate is clean.</p>
+    <!-- Tag selector -->
+    <div class="flex gap-2 pl-1" role="group" aria-label="Task category">
+      <button data-tag="work"   class="tag-btn text-[11px] font-medium px-3 py-1 rounded-full border border-black/[0.08] dark:border-white/10 text-[#94A3B8] hover:bg-black hover:text-white hover:border-black dark:hover:bg-white dark:hover:text-black dark:hover:border-white transition-all duration-150">work</button>
+      <button data-tag="perso"  class="tag-btn text-[11px] font-medium px-3 py-1 rounded-full border border-black/[0.08] dark:border-white/10 text-[#94A3B8] hover:bg-black hover:text-white hover:border-black dark:hover:bg-white dark:hover:text-black dark:hover:border-white transition-all duration-150">perso</button>
+      <button data-tag="urgent" class="tag-btn text-[11px] font-medium px-3 py-1 rounded-full border border-black/[0.08] dark:border-white/10 text-[#94A3B8] hover:bg-black hover:text-white hover:border-black dark:hover:bg-white dark:hover:text-black dark:hover:border-white transition-all duration-150">urgent</button>
     </div>
-
-    <!-- Graveyard -->
-    <div id="graveyard" class="mt-8 hidden">
-      <button id="graveyard-toggle" aria-expanded="false" class="flex items-center gap-2 text-[#94A3B8] text-sm font-medium w-full">
-        <span class="flex-1 text-left">Yesterday</span>
-        <span id="graveyard-count" class="text-xs bg-black/5 text-black/30 rounded-full px-2 py-0.5">0</span>
-        <svg id="graveyard-chevron" class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </button>
-      <ul id="graveyard-list" class="graveyard-list mt-3 space-y-2 overflow-hidden max-h-0 opacity-0" role="list" aria-label="Expired tasks from yesterday"></ul>
-    </div>
-
   </div>
+
+  <!-- Active list -->
+  <ul id="active-list" class="mt-4 space-y-2" role="list" aria-label="Today's tasks"></ul>
+
+  <!-- Empty state -->
+  <div id="empty-state" class="mt-12 text-center hidden">
+    <p class="text-4xl mb-3">✦</p>
+    <p class="text-[14px] text-[#94A3B8] font-light">Your slate is clean.</p>
+  </div>
+
+  <!-- Graveyard -->
+  <div id="graveyard" class="mt-8 hidden">
+    <button id="graveyard-toggle" aria-expanded="false" class="flex items-center gap-2 text-[#94A3B8] dark:text-white/30 text-sm font-medium w-full">
+      <span class="flex-1 text-left">Yesterday</span>
+      <span id="graveyard-count" class="text-xs bg-black/5 dark:bg-white/10 text-black/30 dark:text-white/30 rounded-full px-2 py-0.5">0</span>
+      <svg id="graveyard-chevron" class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <ul id="graveyard-list" class="graveyard-list mt-3 space-y-2 max-h-0 opacity-0" role="list"></ul>
+  </div>
+
+</div>
 </main>
 
-<!-- Debug: time travel -->
+<!-- Debug -->
 <div class="fixed bottom-6 left-1/2 -translate-x-1/2">
-  <button
-    id="time-travel"
-    title="Simulate +24h"
-    class="text-[11px] font-light text-gray-300 bg-white hover:text-gray-400 transition-colors duration-150 px-3 py-1.5 rounded-full focus:outline-none"
-  >
+  <button id="time-travel" title="Simulate +24h"
+    class="text-[11px] font-light text-gray-300 dark:text-white/10 bg-white dark:bg-transparent hover:text-gray-400 dark:hover:text-white/20 transition-colors px-3 py-1.5 rounded-full focus:outline-none">
     +24h
   </button>
 </div>
 
 <script>
-const H24 = 24 * 60 * 60 * 1000;
-const H48 = 48 * 60 * 60 * 1000;
+// ── Constants ─────────────────────────────────────────────
+const H24 = 24*60*60*1000, H48 = 48*60*60*1000
 
-// ── Storage ──────────────────────────────────────────────
-function loadTasks() {
-  try { return JSON.parse(localStorage.getItem('24h-focus-tasks') || '[]'); }
-  catch { return []; }
-}
-function saveTasks(tasks) {
-  try { localStorage.setItem('24h-focus-tasks', JSON.stringify(tasks)); }
-  catch {}
-}
+// ── Storage ───────────────────────────────────────────────
+const load = k => { try { return JSON.parse(localStorage.getItem(k) || 'null') } catch { return null } }
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch {} }
 
-let tasks = loadTasks();
+let tasks        = load('24h-focus-tasks') || []
+let isDark       = load('24h-focus-dark')  || false
+let completedDays= load('24h-focus-completed-days') || []
+let selectedTag  = null
+let graveyardOpen= false
+let prevAllDone  = false
+let dragSrcId    = null
 
 // ── Helpers ───────────────────────────────────────────────
-function classify(tasks) {
-  const now = Date.now();
-  const active = [], expired = [];
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+
+function classify() {
+  const now = Date.now(), active = [], expired = []
   for (const t of tasks) {
-    const age = now - t.createdAt;
-    if (age >= H48) continue;
-    if (age >= H24) expired.push(t);
-    else active.push(t);
+    const age = now - t.createdAt
+    if (t.done && age >= H24) continue   // done tasks vanish after 24h
+    if (age >= H48) continue             // unchecked tasks vanish after 48h
+    if (!t.done && age >= H24) expired.push(t)  // graveyard: unchecked 24-48h
+    else active.push(t)                  // active: anything < 24h
   }
-  active.sort((a, b) => {
-    if (a.priority !== b.priority) return (b.priority ? 1 : 0) - (a.priority ? 1 : 0);
-    return b.createdAt - a.createdAt;
-  });
-  return { active, expired };
+  return { active, expired }
 }
 
-function timeLeft(createdAt) {
-  const diff = H24 - (Date.now() - createdAt);
-  if (diff <= 0) return null;
-  const h = Math.floor(diff / 3600000);
-  const m = Math.floor((diff % 3600000) / 60000);
-  return h === 0 ? `${m}m left` : `${h}h left`;
+function timeLeft(c) {
+  const d = H24-(Date.now()-c); if(d<=0) return null
+  const h=Math.floor(d/3600000), m=Math.floor((d%3600000)/60000)
+  return h===0?`${m}m left`:`${h}h left`
+}
+function hoursAgo(c) { const h=Math.floor((Date.now()-c)/3600000); return h===1?'1 hour ago':`${h} hours ago` }
+function urgencyClass(c) {
+  const p=(Date.now()-c)/H24
+  if(p>.85) return 'text-red-400 bg-red-50 dark:bg-red-950/40'
+  if(p>.60) return 'text-amber-500 bg-amber-50 dark:bg-amber-950/40'
+  return 'text-[#94A3B8] bg-black/[0.04] dark:bg-white/[0.06]'
+}
+const TAG_BADGE = {
+  work:   'text-blue-400/80 bg-blue-50 dark:bg-blue-950/40',
+  perso:  'text-emerald-500/80 bg-emerald-50 dark:bg-emerald-950/40',
+  urgent: 'text-rose-400/80 bg-rose-50 dark:bg-rose-950/40',
 }
 
-function badgeClass(createdAt) {
-  const pct = (Date.now() - createdAt) / H24;
-  if (pct > 0.85) return 'text-red-400 bg-red-50';
-  if (pct > 0.60) return 'text-amber-500 bg-amber-50';
-  return 'text-[#94A3B8] bg-black/5';
+// ── Sound ─────────────────────────────────────────────────
+function playTick() {
+  try {
+    const ctx = new (AudioContext||webkitAudioContext)()
+    const osc=ctx.createOscillator(), gain=ctx.createGain()
+    osc.connect(gain); gain.connect(ctx.destination)
+    osc.type='sine'
+    osc.frequency.setValueAtTime(900,ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(500,ctx.currentTime+0.08)
+    gain.gain.setValueAtTime(0.15,ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.08)
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime+0.08)
+    osc.onended=()=>ctx.close()
+  } catch {}
 }
 
-function hoursAgo(createdAt) {
-  const h = Math.floor((Date.now() - createdAt) / 3600000);
-  return h === 1 ? '1 hour ago' : `${h} hours ago`;
+// ── Confetti ──────────────────────────────────────────────
+function fireConfetti() {
+  confetti({
+    particleCount:90, spread:65, origin:{y:0.55},
+    colors: isDark
+      ? ['#ffffff','#e2e8f0','#94a3b8']
+      : ['#000000','#1e293b','#334155'],
+    shapes:['square'], scalar:0.75, gravity:1.2
+  })
 }
 
-function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+// ── Streak ────────────────────────────────────────────────
+function updateStreak(active) {
+  if (!active.length || !active.every(t=>t.done)) return
+  const today = new Date().toDateString()
+  if (completedDays.includes(today)) return
+  completedDays = [...completedDays, today].slice(-60)
+  save('24h-focus-completed-days', completedDays)
 }
+function calcStreak() {
+  let count=0; const d=new Date()
+  while (completedDays.includes(d.toDateString())) { count++; d.setDate(d.getDate()-1) }
+  return count
+}
+
+// ── Dark mode ─────────────────────────────────────────────
+function applyDark() {
+  document.documentElement.classList.toggle('dark', isDark)
+  document.getElementById('icon-moon').classList.toggle('hidden', isDark)
+  document.getElementById('icon-sun').classList.toggle('hidden', !isDark)
+}
+document.getElementById('dark-toggle').addEventListener('click', () => {
+  isDark = !isDark; save('24h-focus-dark', isDark); applyDark()
+})
+applyDark()
+
+// ── Tag selector ──────────────────────────────────────────
+document.querySelectorAll('.tag-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const t = btn.dataset.tag
+    selectedTag = selectedTag===t ? null : t
+    document.querySelectorAll('.tag-btn').forEach(b => {
+      const active = b.dataset.tag === selectedTag
+      b.classList.toggle('bg-black', active && !isDark)
+      b.classList.toggle('dark:bg-white', active)
+      b.classList.toggle('text-white', active && !isDark)
+      b.classList.toggle('dark:text-black', active)
+      b.classList.toggle('border-transparent', active)
+      b.classList.toggle('text-[#94A3B8]', !active)
+    })
+    render()
+  })
+})
 
 // ── Render ────────────────────────────────────────────────
 function render() {
-  const { active, expired } = classify(tasks);
-  const done = active.filter(t => t.done).length;
-  const total = active.length;
+  const { active, expired } = classify()
 
-  // Progress bar
-  const pct = total === 0 ? 0 : Math.round((done / total) * 100);
-  document.getElementById('progress-fill').style.width = pct + '%';
-  document.getElementById('progress-bar').setAttribute('aria-valuenow', pct);
-
-  // Subtitle
+  // Progress
+  const done=active.filter(t=>t.done).length, total=active.length
+  const pct=total===0?0:Math.round(done/total*100)
+  document.getElementById('progress-fill').style.width=pct+'%'
   document.getElementById('subtitle').textContent =
-    total === 0 ? 'Add something to focus on today.' : `${done} of ${total} done today`;
+    total===0?'Add something to focus on today.':`${done} of ${total} done today`
 
-  // Active list
-  const list = document.getElementById('active-list');
-  list.innerHTML = '';
-  active.forEach(task => {
-    const li = document.createElement('li');
-    li.className = 'task-card task-enter bg-white rounded-3xl px-5 py-4 card-shadow flex items-center gap-4 group';
-    const remaining = timeLeft(task.createdAt);
-    const badge = remaining && !task.done
-      ? `<span class="text-[11px] font-light mt-0.5 px-2 py-0.5 rounded-full inline-block ${badgeClass(task.createdAt)}">${remaining}</span>`
-      : '';
-    const priorityIcon = task.priority && !task.done
-      ? `<svg class="inline -mt-0.5 mr-1" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
-      : '';
+  // Confetti & streak
+  updateStreak(active)
+  const allDone = active.length>0 && active.every(t=>t.done)
+  if (allDone && !prevAllDone) fireConfetti()
+  prevAllDone = allDone
+
+  // Streak badge
+  const streak = calcStreak()
+  const badge = document.getElementById('streak-badge')
+  if (streak>0) {
+    badge.classList.remove('hidden'); badge.classList.add('flex')
+    document.getElementById('streak-count').textContent = streak
+  } else {
+    badge.classList.add('hidden'); badge.classList.remove('flex')
+  }
+
+  // Active list — tag-sorted
+  const sorted = selectedTag
+    ? [...active].sort((a, b) => (a.tag === selectedTag ? 0 : 1) - (b.tag === selectedTag ? 0 : 1))
+    : active
+  const list = document.getElementById('active-list')
+  list.innerHTML = ''
+  sorted.forEach(task => {
+    const li = document.createElement('li')
+    li.className = 'task-card task-enter bg-white dark:bg-[#1A1A1F] rounded-3xl px-4 py-4 card-shadow flex items-center gap-3'
+    li.setAttribute('data-id', task.id)
+    li.setAttribute('draggable', 'true')
+    const remaining = timeLeft(task.createdAt)
+    const badgeHtml = remaining && !task.done
+      ? `<span class="text-[11px] font-light px-2 py-0.5 rounded-full inline-block ${urgencyClass(task.createdAt)}">${remaining}</span>`
+      : ''
+    const tagHtml = task.tag
+      ? `<span class="text-[11px] font-light px-2 py-0.5 rounded-full inline-block ${TAG_BADGE[task.tag]||''}">${task.tag}</span>`
+      : ''
+    const priIcon = task.priority && !task.done
+      ? `<svg class="inline -mt-0.5 mr-1 flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>` : ''
 
     li.innerHTML = `
-      <button class="flex-shrink-0 focus:outline-none" aria-label="${task.done ? 'Mark as not done' : 'Mark as done'}" aria-pressed="${task.done}" data-action="toggle" data-id="${task.id}">
-        <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors duration-200 ${task.done ? 'border-black bg-black check-bounce' : 'border-black/20 hover:border-black/50'}">
-          ${task.done ? `<svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>` : ''}
+      <span class="drag-handle flex-shrink-0 text-black/10 dark:text-white/10 hover:text-black/30 dark:hover:text-white/30 transition-colors touch-none select-none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="5" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="19" r="1" fill="currentColor"/><circle cx="15" cy="5" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="19" r="1" fill="currentColor"/></svg>
+      </span>
+      <button data-action="toggle" data-id="${task.id}" aria-label="${task.done?'Mark as not done':'Mark as done'}" aria-pressed="${task.done}" class="flex-shrink-0 focus:outline-none">
+        <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors duration-200 ${task.done?'border-black bg-black dark:border-white dark:bg-white':'border-black/20 dark:border-white/20 hover:border-black/50 dark:hover:border-white/50'}">
+          ${task.done?`<svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="${isDark?'black':'white'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`:''}
         </div>
       </button>
       <div class="flex-1 min-w-0">
-        <p class="text-[15px] font-medium leading-snug truncate ${task.done ? 'text-[#94A3B8] line-through decoration-[#94A3B8]' : 'text-black'}">${priorityIcon}${escHtml(task.text)}</p>
-        ${badge}
+        <p class="text-[15px] font-medium leading-snug truncate ${task.done?'text-[#94A3B8] line-through decoration-[#94A3B8]':'text-black dark:text-white'}">${priIcon}${esc(task.text)}</p>
+        <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">${badgeHtml}${tagHtml}</div>
       </div>
       <div class="action-btns flex items-center gap-1">
-        <button data-action="priority" data-id="${task.id}" aria-label="${task.priority ? 'Remove priority' : 'Mark as priority'}" aria-pressed="${task.priority}"
-          class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors duration-150 ${task.priority ? 'bg-black text-white' : 'bg-black/5 text-black/40 hover:bg-black/10'}">!</button>
-        <button data-action="delete" data-id="${task.id}" aria-label="Delete task"
-          class="w-7 h-7 rounded-full flex items-center justify-center bg-black/5 text-black/30 hover:bg-red-50 hover:text-red-400 transition-colors duration-150">
+        <button data-action="priority" data-id="${task.id}" class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors ${task.priority?'bg-black dark:bg-white text-white dark:text-black':'bg-black/5 dark:bg-white/10 text-black/40 dark:text-white/40 hover:bg-black/10'}">!</button>
+        <button data-action="delete" data-id="${task.id}" aria-label="Delete" class="w-7 h-7 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10 text-black/30 dark:text-white/30 hover:bg-red-50 hover:text-red-400 transition-colors">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-      </div>`;
-    list.appendChild(li);
-  });
+      </div>`
+
+    // Drag events
+    li.addEventListener('dragstart', e => {
+      dragSrcId = task.id
+      li.classList.add('dragging')
+      e.dataTransfer.effectAllowed = 'move'
+    })
+    li.addEventListener('dragend', () => li.classList.remove('dragging'))
+    li.addEventListener('dragover', e => { e.preventDefault(); li.classList.add('drag-over') })
+    li.addEventListener('dragleave', () => li.classList.remove('drag-over'))
+    li.addEventListener('drop', e => {
+      e.preventDefault(); li.classList.remove('drag-over')
+      if (!dragSrcId || dragSrcId===task.id) return
+      const srcIdx = tasks.findIndex(t=>t.id===dragSrcId)
+      const dstIdx = tasks.findIndex(t=>t.id===task.id)
+      if (srcIdx<0||dstIdx<0) return
+      const next=[...tasks]; const [moved]=next.splice(srcIdx,1); next.splice(dstIdx,0,moved)
+      tasks=next; save('24h-focus-tasks',tasks); render()
+    })
+
+    list.appendChild(li)
+  })
 
   // Empty state
-  document.getElementById('empty-state').classList.toggle('hidden', active.length > 0);
+  document.getElementById('empty-state').classList.toggle('hidden', active.length>0)
 
   // Graveyard
-  const graveyard = document.getElementById('graveyard');
-  if (expired.length === 0) {
-    graveyard.classList.add('hidden');
-  } else {
-    graveyard.classList.remove('hidden');
-    document.getElementById('graveyard-count').textContent = expired.length;
-    const gList = document.getElementById('graveyard-list');
-    gList.innerHTML = '';
-    expired.forEach(task => {
-      const li = document.createElement('li');
-      li.className = 'graveyard-item flex items-center gap-4 bg-white/60 rounded-3xl px-5 py-4 border border-black/[0.04]';
-      li.innerHTML = `
-        <div class="w-6 h-6 rounded-full border-2 border-black/10 flex-shrink-0"></div>
-        <div class="flex-1 min-w-0">
-          <p class="text-[14px] font-medium text-black/30 line-through decoration-black/[0.15] truncate">${escHtml(task.text)}</p>
-          <p class="text-[11px] font-light text-black/20 mt-0.5">${hoursAgo(task.createdAt)}</p>
-        </div>
-        <button data-action="revive" data-id="${task.id}" aria-label="Revive ${escHtml(task.text)}"
-          class="revive-btn flex-shrink-0 flex items-center gap-1.5 text-[11px] font-medium text-[#94A3B8] hover:text-black transition-all duration-150 rounded-full px-2 py-1">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.79"/></svg>
-          Revive
-        </button>`;
-      gList.appendChild(li);
-    });
+  const gEl = document.getElementById('graveyard')
+  if (!expired.length) { gEl.classList.add('hidden'); return }
+  gEl.classList.remove('hidden')
+  document.getElementById('graveyard-count').textContent = expired.length
+  const gList = document.getElementById('graveyard-list')
+  gList.innerHTML = ''
+  expired.forEach(task => {
+    const li = document.createElement('li')
+    li.className = 'graveyard-item flex items-center gap-4 bg-white/60 dark:bg-white/[0.03] rounded-3xl px-5 py-4 border border-black/[0.04] dark:border-white/[0.06]'
+    li.innerHTML = `
+      <div class="w-6 h-6 rounded-full border-2 border-black/10 dark:border-white/10 flex-shrink-0"></div>
+      <div class="flex-1 min-w-0">
+        <p class="text-[14px] font-medium text-black/30 dark:text-white/20 line-through decoration-black/15 truncate">${esc(task.text)}</p>
+        <p class="text-[11px] font-light text-black/20 dark:text-white/15 mt-0.5">${hoursAgo(task.createdAt)}</p>
+      </div>
+      <button data-action="revive" data-id="${task.id}" aria-label="Revive" class="revive-btn flex-shrink-0 flex items-center gap-1.5 text-[11px] font-medium text-[#94A3B8] hover:text-black dark:hover:text-white transition-all rounded-full px-2 py-1">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.79"/></svg>
+        Revive
+      </button>`
+    gList.appendChild(li)
+  })
+
+  if (graveyardOpen) {
+    gList.style.maxHeight = gList.scrollHeight+500+'px'
+    gList.style.opacity='1'
   }
 }
 
 // ── Graveyard toggle ──────────────────────────────────────
-let graveyardOpen = false;
 document.getElementById('graveyard-toggle').addEventListener('click', () => {
-  graveyardOpen = !graveyardOpen;
-  const list = document.getElementById('graveyard-list');
-  const chevron = document.getElementById('graveyard-chevron');
-  const toggle = document.getElementById('graveyard-toggle');
-  if (graveyardOpen) {
-    list.style.maxHeight = list.scrollHeight + 500 + 'px';
-    list.style.opacity = '1';
-    chevron.classList.add('open');
-    toggle.setAttribute('aria-expanded', 'true');
-  } else {
-    list.style.maxHeight = '0';
-    list.style.opacity = '0';
-    chevron.classList.remove('open');
-    toggle.setAttribute('aria-expanded', 'false');
-  }
-});
+  graveyardOpen=!graveyardOpen
+  const list=document.getElementById('graveyard-list')
+  const chevron=document.getElementById('graveyard-chevron')
+  list.style.maxHeight = graveyardOpen ? list.scrollHeight+500+'px' : '0'
+  list.style.opacity   = graveyardOpen ? '1' : '0'
+  chevron.classList.toggle('open', graveyardOpen)
+  document.getElementById('graveyard-toggle').setAttribute('aria-expanded', graveyardOpen)
+})
 
 // ── Event delegation ──────────────────────────────────────
 document.addEventListener('click', e => {
-  const btn = e.target.closest('[data-action]');
-  if (!btn) return;
-  const { action, id } = btn.dataset;
+  const btn = e.target.closest('[data-action]')
+  if (!btn) return
+  const { action, id } = btn.dataset
 
-  if (action === 'toggle') {
-    tasks = tasks.map(t => t.id === id ? { ...t, done: !t.done } : t);
-  } else if (action === 'priority') {
-    tasks = tasks.map(t => t.id === id ? { ...t, priority: !t.priority } : t);
-  } else if (action === 'delete') {
-    tasks = tasks.filter(t => t.id !== id);
-  } else if (action === 'revive') {
-    tasks = tasks.map(t => t.id === id ? { ...t, createdAt: Date.now(), done: false } : t);
-    // Re-open graveyard after revive if still has items
-    graveyardOpen = true;
+  if (action==='toggle') {
+    const t=tasks.find(t=>t.id===id)
+    if (t && !t.done) playTick()
+    tasks=tasks.map(t=>t.id===id?{...t,done:!t.done}:t)
+  } else if (action==='priority') {
+    tasks=tasks.map(t=>t.id===id?{...t,priority:!t.priority}:t)
+  } else if (action==='delete') {
+    tasks=tasks.filter(t=>t.id!==id)
+  } else if (action==='revive') {
+    tasks=tasks.map(t=>t.id===id?{...t,createdAt:Date.now(),done:false}:t)
+    graveyardOpen=true
   }
-
-  saveTasks(tasks);
-  render();
-
-  // Keep graveyard open after re-render
-  if (graveyardOpen) {
-    const list = document.getElementById('graveyard-list');
-    if (list) {
-      list.style.maxHeight = list.scrollHeight + 500 + 'px';
-      list.style.opacity = '1';
-      document.getElementById('graveyard-chevron')?.classList.add('open');
-      document.getElementById('graveyard-toggle')?.setAttribute('aria-expanded', 'true');
-    }
-  }
-});
+  save('24h-focus-tasks',tasks); render()
+})
 
 // ── Add task ──────────────────────────────────────────────
 function addTask() {
-  const input = document.getElementById('task-input');
-  const text = input.value.trim();
-  if (!text) return;
-  tasks.push({ id: crypto.randomUUID(), text, createdAt: Date.now(), done: false, priority: false });
-  saveTasks(tasks);
-  input.value = '';
-  render();
+  const input=document.getElementById('task-input')
+  const text=input.value.trim(); if(!text) return
+  tasks=[{id:crypto.randomUUID(),text,tag:selectedTag,createdAt:Date.now(),done:false,priority:false},...tasks]
+  save('24h-focus-tasks',tasks)
+  input.value=''; selectedTag=null
+  document.querySelectorAll('.tag-btn').forEach(b=>{
+    b.classList.remove('bg-black','text-white','border-transparent')
+    b.classList.add('text-[#94A3B8]')
+  })
+  render()
 }
+document.getElementById('add-btn').addEventListener('click', addTask)
+document.getElementById('task-input').addEventListener('keydown', e=>{ if(e.key==='Enter') addTask() })
 
-document.getElementById('add-btn').addEventListener('click', addTask);
-document.getElementById('task-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') addTask();
-});
+// ── Time travel ───────────────────────────────────────────
+document.getElementById('time-travel').addEventListener('click', ()=>{
+  tasks=tasks.map(t=>({...t,createdAt:t.createdAt-H24}))
+  save('24h-focus-tasks',tasks); render()
+})
 
-// ── Purge + tick ──────────────────────────────────────────
+// ── Purge + init ──────────────────────────────────────────
 function purge() {
-  const before = tasks.length;
-  tasks = tasks.filter(t => Date.now() - t.createdAt < H48);
-  if (tasks.length !== before) saveTasks(tasks);
-  render();
+  const before=tasks.length
+  tasks=tasks.filter(t=>{
+    const age=Date.now()-t.createdAt
+    return t.done ? age<H24 : age<H48
+  })
+  if(tasks.length!==before) save('24h-focus-tasks',tasks)
+  render()
 }
-
-purge();
-setInterval(purge, 60_000);
-
-document.getElementById('time-travel').addEventListener('click', () => {
-  tasks = tasks.map(t => ({ ...t, createdAt: t.createdAt - H24 }));
-  saveTasks(tasks);
-  render();
-});
+purge()
+setInterval(purge, 60_000)
 </script>
 </body>
 </html>
