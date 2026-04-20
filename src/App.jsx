@@ -231,7 +231,7 @@ export default function App() {
                 transition={{ duration: 0.3, delay: 0.15 }}
                 className="mt-12 text-center"
               >
-                <p className="text-4xl mb-3">✦</p>
+                <p className="text-4xl mb-3 text-black dark:text-white">✦</p>
                 <p className="text-[14px] text-[#94A3B8] font-light">Your slate is clean.</p>
               </motion.div>
             )}
