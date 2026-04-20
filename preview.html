@@ -97,6 +97,17 @@
   </div>
 </main>
 
+<!-- Debug: time travel -->
+<div class="fixed bottom-6 left-1/2 -translate-x-1/2">
+  <button
+    id="time-travel"
+    title="Simulate +24h"
+    class="text-[11px] font-light text-gray-300 bg-white hover:text-gray-400 transition-colors duration-150 px-3 py-1.5 rounded-full focus:outline-none"
+  >
+    +24h
+  </button>
+</div>
+
 <script>
 const H24 = 24 * 60 * 60 * 1000;
 const H48 = 48 * 60 * 60 * 1000;
@@ -314,6 +325,12 @@ function purge() {
 
 purge();
 setInterval(purge, 60_000);
+
+document.getElementById('time-travel').addEventListener('click', () => {
+  tasks = tasks.map(t => ({ ...t, createdAt: t.createdAt - H24 }));
+  saveTasks(tasks);
+  render();
+});
 </script>
 </body>
 </html>
