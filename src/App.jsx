@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState } from 'react'
+import { useEffect, useCallback, useRef, useState, useMemo } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   DndContext,
@@ -74,10 +74,11 @@ export default function App() {
     return () => clearInterval(id)
   }, [setTasks])
 
-  const { active: rawActive, expired } = classifyTasks(tasks)
-  const active = filterTag
+  const { active: rawActive, expired } = useMemo(() => classifyTasks(tasks), [tasks])
+  const active = useMemo(() => filterTag
     ? [...rawActive].sort((a, b) => (a.tag === filterTag ? 0 : 1) - (b.tag === filterTag ? 0 : 1))
     : rawActive
+  , [rawActive, filterTag])
 
   // Streak
   const streak = useStreak(active)

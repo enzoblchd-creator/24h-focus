@@ -286,10 +286,21 @@ function render() {
   const list = document.getElementById('active-list')
   list.innerHTML = ''
   sorted.forEach(task => {
+    // Outer wrapper (drag + swipe container)
     const li = document.createElement('li')
-    li.className = 'task-card task-enter bg-white dark:bg-[#1A1A1F] rounded-3xl px-4 py-4 card-shadow flex items-center gap-3'
+    li.className = 'relative'
     li.setAttribute('data-id', task.id)
     li.setAttribute('draggable', 'true')
+
+    // Delete hint (shown behind on swipe)
+    const deleteBg = document.createElement('div')
+    deleteBg.className = 'absolute inset-0 rounded-3xl bg-red-50 dark:bg-red-950/30 flex items-center justify-end pr-5'
+    deleteBg.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`
+    li.appendChild(deleteBg)
+
+    // Inner swipeable card
+    const card = document.createElement('div')
+    card.className = 'task-card task-enter bg-white dark:bg-[#1A1A1F] rounded-3xl px-4 py-4 card-shadow flex items-center gap-3 relative'
     const remaining = timeLeft(task.createdAt)
     const badgeHtml = remaining && !task.done
       ? `<span class="text-[11px] font-light px-2 py-0.5 rounded-full inline-block ${urgencyClass(task.createdAt)}">${remaining}</span>`
@@ -300,7 +311,7 @@ function render() {
     const priIcon = task.priority && !task.done
       ? `<svg class="inline -mt-0.5 mr-1 flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>` : ''
 
-    li.innerHTML = `
+    card.innerHTML = `
       <span class="drag-handle flex-shrink-0 text-black/10 dark:text-white/10 hover:text-black/30 dark:hover:text-white/30 transition-colors touch-none select-none">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="5" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="19" r="1" fill="currentColor"/><circle cx="15" cy="5" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="19" r="1" fill="currentColor"/></svg>
       </span>
@@ -320,25 +331,52 @@ function render() {
         </button>
       </div>`
 
-    // Drag events
-    li.addEventListener('dragstart', e => {
-      dragSrcId = task.id
-      li.classList.add('dragging')
-      e.dataTransfer.effectAllowed = 'move'
+    // Swipe-to-delete (mobile)
+    let swipeTouchStartX=0, swipeTouchStartY=0, swipeIntent=null
+    card.addEventListener('touchstart', e => {
+      swipeTouchStartX=e.touches[0].clientX; swipeTouchStartY=e.touches[0].clientY
+      swipeIntent=null; card.style.transition='none'
+    }, {passive:true})
+    card.addEventListener('touchmove', e => {
+      const dx=e.touches[0].clientX-swipeTouchStartX, dy=e.touches[0].clientY-swipeTouchStartY
+      if (swipeIntent===null) {
+        if (Math.abs(dx)>8) swipeIntent=Math.abs(dx)>Math.abs(dy)?'swipe':'scroll'
+        else if (Math.abs(dy)>8) swipeIntent='scroll'
+        else return
+      }
+      if (swipeIntent!=='swipe'||dx>=0) return
+      e.preventDefault()
+      card.style.transform=`translateX(${Math.max(dx,-124)}px)`
+    }, {passive:false})
+    card.addEventListener('touchend', () => {
+      if (swipeIntent!=='swipe') { swipeIntent=null; return }
+      const x=parseFloat(card.style.transform?.match(/-?[\d.]+/)?.[0]||'0')
+      if (x<-88) {
+        card.style.transition='transform 0.2s ease-in'
+        card.style.transform='translateX(-110%)'
+        setTimeout(()=>{ tasks=tasks.filter(t=>t.id!==task.id); save('24h-focus-tasks',tasks); render() }, 200)
+      } else {
+        card.style.transition='transform 0.4s cubic-bezier(0.34,1.56,0.64,1)'
+        card.style.transform='translateX(0)'
+      }
+      swipeIntent=null
     })
+
+    // Drag events (desktop)
+    li.addEventListener('dragstart', e => { dragSrcId=task.id; li.classList.add('dragging'); e.dataTransfer.effectAllowed='move' })
     li.addEventListener('dragend', () => li.classList.remove('dragging'))
     li.addEventListener('dragover', e => { e.preventDefault(); li.classList.add('drag-over') })
     li.addEventListener('dragleave', () => li.classList.remove('drag-over'))
     li.addEventListener('drop', e => {
       e.preventDefault(); li.classList.remove('drag-over')
-      if (!dragSrcId || dragSrcId===task.id) return
-      const srcIdx = tasks.findIndex(t=>t.id===dragSrcId)
-      const dstIdx = tasks.findIndex(t=>t.id===task.id)
+      if (!dragSrcId||dragSrcId===task.id) return
+      const srcIdx=tasks.findIndex(t=>t.id===dragSrcId), dstIdx=tasks.findIndex(t=>t.id===task.id)
       if (srcIdx<0||dstIdx<0) return
       const next=[...tasks]; const [moved]=next.splice(srcIdx,1); next.splice(dstIdx,0,moved)
       tasks=next; save('24h-focus-tasks',tasks); render()
     })
 
+    li.appendChild(card)
     list.appendChild(li)
   })
 
